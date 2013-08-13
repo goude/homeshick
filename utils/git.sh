@@ -79,16 +79,15 @@ function pull {
 }
 
 function list {
-	for repo in $(find $repos -mindepth 2 -maxdepth 2 -name .git -type d | sed 's#/.git$##g'); do
-		local remote_url=$(cd $repo; git config remote.origin.url)
-		local reponame=$(basename $repo)
+	for reponame in $(list_castle_names); do
+		local remote_url=$(cd $repos/$reponame; git config remote.origin.url)
 		info $reponame $remote_url
 	done
 	return $EX_SUCCESS
 }
 
 function list_castle_names {
-	for repo in $(find $repos -mindepth 2 -maxdepth 2 -name .git -type d | sed 's#/.git$##g'); do
+	for repo in $(find $repos -mindepth 2 -maxdepth 2 -name .git -type d | sed 's#/.git$##g' | sort); do
 		local reponame=$(basename $repo)
 		printf "$reponame\n"
 	done
@@ -204,7 +203,11 @@ function symlink_cloned_files {
 		local castle=$(parse_url $1)
 		shift
 		local repo="$repos/$castle"
-		if [[ -d $repo/home && $(find $repo/home -mindepth 1 -maxdepth 1 | wc -l) > 0 ]]; then
+		if [[ ! -d $repo/home ]]; then
+			continue;
+		fi
+		local num_files=$(find $repo/home -mindepth 1 -maxdepth 1 | wc -l | tr -dc "0123456789")
+		if [[ $num_files > 0 ]]; then
 			cloned_castles+=($castle)
 		fi
 	done
@@ -250,43 +253,29 @@ function ask_symlink {
 	return $EX_SUCCESS
 }
 
-# Snatched from http://rubinium.org/blog/archives/2010/04/05/shell-script-version-compare-vercmp/
-function version_compare_old {
-	expr '(' "$1" : '\([^.]*\)' ')' '-' '(' "$2" : '\([^.]*\)' ')' '|' \
-		'(' "$1.0" : '[^.]*[.]\([^.]*\)' ')' '-' '(' "$2.0" : '[^.]*[.]\([^.]*\)' ')' '|' \
-		'(' "$1.0.0" : '[^.]*[.][^.]*[.]\([^.]*\)' ')' '-' '(' "$2.0.0" : '[^.]*[.][^.]*[.]\([^.]*\)' ')' '|' \
-		'(' "$1.0.0.0" : '[^.]*[.][^.]*[.][^.]*[.]\([^.]*\)' ')' '-' '(' "$2.0.0.0" : '[^.]*[.][^.]*[.][^.]*[.]\([^.]*\)' ')'
-}
-
 # Snatched from http://stackoverflow.com/questions/4023830/bash-how-compare-two-strings-in-version-format 
 function version_compare {
-    if [[ $1 == $2 ]]
-    then
-        return 0
-    fi
-    local IFS=.
-    local i ver1=($1) ver2=($2)
-    # fill empty fields in ver1 with zeros
-    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
-    do
-        ver1[i]=0
-    done
-    for ((i=0; i<${#ver1[@]}; i++))
-    do
-        if [[ -z ${ver2[i]} ]]
-        then
-            # fill empty fields in ver2 with zeros
-            ver2[i]=0
-        fi
-        if ((10#${ver1[i]} > 10#${ver2[i]}))
-        then
-            return 1
-        fi
-        if ((10#${ver1[i]} < 10#${ver2[i]}))
-        then
-            return 2
-        fi
-    done
-    return 0
+	if [[ $1 == $2 ]]; then
+		return 0
+	fi
+	local IFS=.
+	local i ver1=($1) ver2=($2)
+	# fill empty fields in ver1 with zeros
+	for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
+		ver1[i]=0
+	done
+	for ((i=0; i<${#ver1[@]}; i++)); do
+		if [[ -z ${ver2[i]} ]]; then
+			# fill empty fields in ver2 with zeros
+			ver2[i]=0
+		fi
+		if ((10#${ver1[i]} > 10#${ver2[i]})); then
+			return 1
+		fi
+		if ((10#${ver1[i]} < 10#${ver2[i]})); then
+			return 2
+		fi
+	done
+	return 0
 }
 

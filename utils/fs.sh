@@ -40,7 +40,7 @@ function symlink {
 			rm -rf "$HOME/$file"
 		fi
 
-		if [[ -d $repo/home/$file ]]; then
+		if [[ -d $repo/home/$file && ! -L $repo/home/$file ]]; then
 			pending $bldblu 'directory' $file
 			mkdir $HOME/$file
 		else
@@ -56,7 +56,7 @@ function symlink {
 function track {
 	[[ ! $1 || ! $2 ]] && help track
 	local castle=$1
-	local filename=$(readlink -f $2 2> /dev/null || realpath $2)
+	local filename=$(abs_path $2)
 	if [[ $filename != $HOME/* ]]; then
 		err $EX_ERR "The file $filename must be in your home directory."
 	fi
@@ -100,4 +100,8 @@ function home_exists {
 	if [[ ! -d $repo/home ]]; then
 		err $EX_ERR "Could not $action $castle, expected $repo to contain a home folder"
 	fi
+}
+
+function abs_path {
+	(cd "${1%/*}" &>/dev/null; printf "%s/%s" "$(pwd)" "${1##*/}")
 }
