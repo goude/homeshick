@@ -14,14 +14,15 @@ function clone {
 	[[ ! $1 ]] && help_err clone
 	local git_repo=$1
 	local repo_path="$repos/$(parse_url $git_repo)"
-	if [[ $git_repo =~ ^([A-Za-z_-]+\/[A-Za-z_-]+)$ ]]; then
+	if [[ $git_repo =~ ^([0-9A-Za-z_-]+\/[0-9A-Za-z_-]+)$ ]]; then
 		git_repo="https://github.com/$git_repo.git"
 	fi
 	pending 'clone' $git_repo
 	test -e $repo_path && err $EX_ERR "$repo_path already exists"
 
 	local git_out
-	if [[ $(version_compare $GIT_VERSION 1.6.5) -ge 0 ]]; then
+	version_compare $GIT_VERSION 1.6.5
+	if [[ $? != 2 ]]; then
 		git_out=$(git clone --recursive $git_repo $repo_path 2>&1)
 		[[ $? == 0 ]] || err $EX_SOFTWARE "Unable to clone $git_repo. Git says:" "$git_out"
 		success
@@ -67,7 +68,8 @@ function pull {
 	git_out=$(cd $repo; git pull 2>&1)
 	[[ $? == 0 ]] || err $EX_SOFTWARE "Unable to pull $repo. Git says:" "$git_out"
 
-	if [[ $(version_compare $GIT_VERSION 1.6.5) -ge 0 ]]; then
+	version_compare $GIT_VERSION 1.6.5
+	if [[ $? != 2 ]]; then
 		git_out=$(cd $repo; git submodule update --recursive --init 2>&1)
 		[[ $? == 0 ]] || err $EX_SOFTWARE "Unable update submodules for $repo. Git says:" "$git_out"
 	else
@@ -80,7 +82,10 @@ function pull {
 
 function list {
 	for reponame in $(list_castle_names); do
-		local remote_url=$(cd $repos/$reponame; git config remote.origin.url)
+		local ref=$(cd $repos/$reponame; git symbolic-ref HEAD 2>/dev/null)
+		local branch=${ref#refs/heads/}
+		local remote_name=$(cd $repos/$reponame; git config branch.$branch.remote 2>/dev/null)
+		local remote_url=$(cd $repos/$reponame; git config remote.$remote_name.url 2>/dev/null)
 		info $reponame $remote_url
 	done
 	return $EX_SUCCESS
@@ -103,16 +108,20 @@ function check {
 	castle_exists 'check' $castle
 
 	local ref=$(cd $repo; git symbolic-ref HEAD 2>/dev/null)
-	local remote_url=$(cd $repo; git config remote.origin.url 2>/dev/null)
-	local remote_head=$(git ls-remote -q --heads "$remote_url" "$ref" 2>/dev/null | cut -f 1)
+	local branch=${ref#refs/heads/}
+	local remote_name=$(cd $repo; git config branch.$branch.remote 2>/dev/null)
+	local remote_url=$(cd $repo; git config remote.$remote_name.url 2>/dev/null)
+	local remote_head=$(git ls-remote -q --heads "$remote_url" "$branch" 2>/dev/null | cut -f 1)
 	if [[ $remote_head ]]; then
 		local local_head=$(cd $repo; git rev-parse HEAD)
 		if [[ $remote_head == $local_head ]]; then
 			success 'up to date'
 			exit_status=$EX_SUCCESS
 		else
-			(cd $repo; git branch --contains "$remote_head" 2>/dev/null) > /dev/null
-			if [[ $? == 0 ]]; then
+			local merge_base=$(cd $repo; git merge-base "$remote_head" "$local_head" 2>/dev/null)
+			local checked_ref
+			checked_ref=$(cd $repo; git rev-parse --verify "$remote_head" 2>/dev/null)
+			if [[ $? == 0 && $merge_base != "" && $merge_base == $checked_ref ]]; then
 				fail 'ahead'
 				exit_status=$EX_AHEAD
 			else
