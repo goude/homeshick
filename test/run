@@ -50,9 +50,10 @@ fi
 # Check if expect is installed
 type expect >/dev/null 2>&1
 if [[ $? != 0 ]]; then
-	printf "\`expect' (http://www.tcl.tk/man/expect5.31/index.html) is used by some unit tests\n"
-	printf "and must be installed. Please install \`expect' before continuing.\n"
-	exit 1 # EX_ERR
+	export EXPECT_INSTALLED=false
+	printf "\`expect' executable not found. Skipping all tests using expect.\n"
+else
+	export EXPECT_INSTALLED=true
 fi
 
 # Check if coreutils is in PATH
@@ -84,6 +85,8 @@ rm -rf $REPO_FIXTURES $HOME $NOTHOME
 mkdir -p $REPO_FIXTURES $HOME $NOTHOME
 
 export HOMESICK=$HOME/.homesick
+export HOMESHICK_FN="homeshick"
+export HOMESHICK_FN_SRC=$HOMESICK/repos/homeshick/homeshick.sh
 export HOMESHICK_BIN=$HOMESICK/repos/homeshick/bin/homeshick
 export HOMESHICK_SH=$HOMESICK/repos/homeshick/bin/homeshick.sh
 export HOMESHICK_CSH=$HOMESICK/repos/homeshick/bin/homeshick.csh
@@ -99,7 +102,10 @@ set +e
 
 exit_status=0
 if [[ -z "$test_suites" ]]; then
-	test_suites=("clone" "link" "track" "list" "check" "cd")
+	test_suites=()
+	for file in $SCRIPTDIR/suites/*.sh; do
+		test_suites+=($(basename $file .sh))
+	done
 fi
 for test_suite in ${test_suites[*]}; do
 	printf "\nTestsuite: $test_suite\n"
