@@ -11,7 +11,7 @@ function symlink {
 	fi
 	oldIFS=$IFS
 	IFS=$'\n'
-	for filename in $(get_repo_files $repo); do
+	for filename in $(get_repo_files $repo/home); do
 		remote="$repo/home/$filename"
 		IFS=$oldIFS
 		local=$HOME/$filename
@@ -65,20 +65,31 @@ function symlink {
 }
 
 function get_repo_files {
-	local repo=$1
-	local dirs=""
-	local files=""
-	for file in $(cd $repo/home && git ls-files); do
-		if [[ -n $dirs ]]; then
-			dirs="$dirs\n"
-		fi
-		dirs="$dirs${file%/*}"
+	local dir=$1
+	local prefix=''
+	if [[ -n $2 ]]; then
+		dir="$dir/$2"
+		prefix="$2/"
+	fi
+	local paths=""
+	# Loop through the files tracked by git and compute
+	# a list of their parent directories.
+	for path in $(cd $dir && git ls-files); do
+		# Don't add a newline to the beginning of the list
+		[[ -n $paths ]] && paths="$paths\n"
+		paths="$paths$prefix$path"
+		# Get all directory paths up to the root.
+		# We won't ever hit '/' here since ls-files
+		# always shows paths relative to the repo root.
+		while [[ $path =~ '/' ]]; do
+			path=$(dirname $path)
+			paths="$prefix$path\n$paths"
+		done
+	done
 
-		if [[ -n $files ]]; then
-			files="$files\n"
-		fi
-		files="$files$file"
-	done;
+	for submodule in $(cd $dir; git submodule --quiet foreach 'printf "%s\n" "$path"'); do
+		paths="$(get_repo_files $dir $submodule)\n$paths"
+	done
 
-	echo "$(echo -e "$dirs\n$files" | sort | uniq)"
+	printf "$paths" | sort | uniq
 }
