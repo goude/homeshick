@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 
 repos="$HOME/.homesick/repos"
-homeshick="$repos/homeshick"
-# It's either this^ or the one below:
-# scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# The install script however symlinks us. So $0 changes.
-
 # Include all helper functions. We will include the required command function later on.
-for file in $homeshick/lib/*.sh; do
-	source $file
-done
+homeshick=${HOMESHICK_DIR:-$HOME/.homesick/repos/homeshick}
+source "$homeshick/lib/exit_status.sh"
+source "$homeshick/lib/fs.sh"
+source "$homeshick/lib/git.sh"
+source "$homeshick/lib/log.sh"
+source "$homeshick/lib/prompt.sh"
 
 exit_status=$EX_SUCCESS
 
@@ -27,6 +25,7 @@ TALK=true
 SKIP=false
 FORCE=false
 BATCH=false
+VERBOSE=false
 
 # Retrieve all the flags preceeding a subcommand
 while [[ $# -gt 0 ]]; do
@@ -44,6 +43,7 @@ while [[ $# -gt 0 ]]; do
 			-s | --skip)  SKIP=true  ; shift; continue ;;
 			-f | --force) FORCE=true ; shift; continue ;;
 			-b | --batch) BATCH=true ; shift; continue ;;
+			-v | --verbose) VERBOSE=true ; shift; continue ;;
 			*)     err $EX_USAGE "Unknown option '$1'" ;;
 		esac
 	else
@@ -81,6 +81,7 @@ while [[ $# -gt 0 ]]; do
 			-s | --skip)  SKIP=true  ; shift; continue ;;
 			-f | --force) FORCE=true ; shift; continue ;;
 			-b | --batch) BATCH=true ; shift; continue ;;
+			-v | --verbose) VERBOSE=true ; shift; continue ;;
 			*)     err $EX_USAGE "Unknown option '$1'" ;;
 		esac
 	fi
@@ -121,9 +122,9 @@ fi
 # Include the file that implements the invoked command
 case $cmd in
 	cd) ;;
-	symlink) source $homeshick/lib/commands/link.sh ;;
-	updates) source $homeshick/lib/commands/check.sh ;;
-	*)       source $homeshick/lib/commands/$cmd.sh ;;
+	symlink) source "$homeshick/lib/commands/link.sh" ;;
+	updates) source "$homeshick/lib/commands/check.sh" ;;
+	*)       source "$homeshick/lib/commands/$cmd.sh" ;;
 esac
 
 case $cmd in

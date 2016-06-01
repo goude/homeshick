@@ -2,6 +2,56 @@
 
 load ../helper
 
+@test 'link file with crazy name' {
+	castle 'repo with spaces in name'
+	$HOMESHICK_FN --batch link 'repo with spaces in name'
+	test_filename=".crazy
+file␇☺"
+	[ -f "$HOME/.crazy
+file␇☺" ]
+}
+
+@test 'do not fail when linking file with newline' {
+ castle 'rc-files'
+ test_filename="filename
+newline"
+ touch "$HOMESICK/repos/rc-files/home/$test_filename"
+ commit_repo_state $HOMESICK/repos/rc-files
+ $HOMESHICK_FN --batch link rc-files
+ [ -L "$HOME/filename
+newline" ]
+ is_symlink "$HOMESICK/repos/rc-files/home/filename
+newline" "$HOME/filename
+newline"
+}
+
+@test 'link a file with spaces in its name' {
+	castle 'repo with spaces in name'
+	$HOMESHICK_FN --batch link "repo with spaces in name"
+	[ -f "$HOME/.file with spaces in name" ]
+	[ -f "$HOME/.folder with spaces in name/another file with spaces in its name" ]
+}
+
+@test 'only link submodule files inside home/' {
+	castle 'submodule-outside-home'
+	# '!' inverts the return value
+	! $HOMESHICK_FN --batch link submodule-outside-home 2>&1 | grep 'No such file or directory'
+	# This is the best I can do for testing.
+	# The failure does not cause any files to be created
+	# Ostensibly homeshick should exit with $? != 0 when linking fails, but it doesn't
+}
+
+@test 'link files of nested submodules' {
+	fixture 'nested-submodules'
+	GIT_VERSION=$(get_git_version)
+	run version_compare $GIT_VERSION 1.6.5
+	[[ $status == 2 ]] && skip 'git version too low'
+
+	$HOMESHICK_FN --batch clone $REPO_FIXTURES/nested-submodules
+	$HOMESHICK_FN --batch link nested-submodules
+	[ -f "$HOME/.subdir1/.subdir2/.info2" ]
+}
+
 @test "don't fail when linking uninitialized subrepos" {
 	fixture 'nested-submodules'
 	GIT_VERSION=$(get_git_version)
@@ -15,7 +65,7 @@ load ../helper
 	[ ! -f "$HOME/.info" ]
 }
 
-@test 'link submodule files recursively' {
+@test 'link submodule files' {
 	fixture 'nested-submodules'
 	GIT_VERSION=$(get_git_version)
 	run version_compare $GIT_VERSION 1.6.5
@@ -24,7 +74,7 @@ load ../helper
 	$HOMESHICK_FN --batch clone $REPO_FIXTURES/nested-submodules
 	$HOMESHICK_FN --batch link nested-submodules
 	[ -f "$HOME/.info" ]
-	[ -f "$HOME/.subdir/.info2" ]
+	[ -f "$HOME/.subdir1/.info1" ]
 }
 
 @test 'link repo with no dirs in home/' {
@@ -91,16 +141,16 @@ EOF
 	castle 'dotfiles'
 	mkdir -p $HOME/.config/bar.dir
 	cat > $HOME/.config/foo.conf <<EOF
-#I am just a regular foo.conf file 
+#I am just a regular foo.conf file
 [foo]
 A=True
 EOF
 	cat > $HOME/.config/bar.dir/bar.conf <<EOF
-#I am just a regular bar.conf file 
+#I am just a regular bar.conf file
 [bar]
 A=True
 EOF
-	
+
 	[ -f "$HOME/.config/foo.conf" ]
 	#.config/foo.conf should be overwritten by a directory of the same name
 	[ -d "$HOME/.config/bar.dir" ]
@@ -146,18 +196,6 @@ EOF
 	is_symlink $HOMESICK/repos/rc-files/home/.bashrc $HOME/.bashrc
 	is_symlink $HOMESICK/repos/dotfiles/home/.ssh/known_hosts $HOME/.ssh/known_hosts
 	is_symlink "$HOMESICK/repos/repo with spaces in name/home/.repowithspacesfile" $HOME/.repowithspacesfile
-}
-
-@test 'fail when linking file with newline' {
-	castle 'rc-files'
-	touch "$HOMESICK/repos/rc-files/home/filename
-newline"
-	commit_repo_state $HOMESICK/repos/rc-files
-	$HOMESHICK_FN --batch link rc-files
-	[ -L "$HOME/\"filename" ]
-	[ -L "$HOME/newline\"" ]
-	is_symlink $HOMESICK/repos/rc-files/home/\"filename $HOME/\"filename
-	is_symlink $HOMESICK/repos/rc-files/home/newline\" $HOME/newline\"
 }
 
 @test 'files ignored by git should not be linked' {

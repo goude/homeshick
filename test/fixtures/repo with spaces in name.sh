@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 (
 	local git_username="Homeshick user"
 	local git_useremail="homeshick@example.com"
@@ -14,4 +14,18 @@
 
 	git add .repowithspacesfile
 	git commit -m 'Add file to repo with spaces in name'
+
+	touch ".file with spaces in name"
+	git add ".file with spaces in name"
+
+	mkdir ".folder with spaces in name"
+	touch ".folder with spaces in name/another file with spaces in its name"
+	git add ".folder with spaces in name/another file with spaces in its name"
+
+	touch ".crazy
+file␇☺"
+	git add ".crazy
+file␇☺"
+
+	git commit -m 'Add file with newline and all kinds of crazy characters in the name'
 ) > /dev/null

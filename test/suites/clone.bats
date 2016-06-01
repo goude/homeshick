@@ -4,6 +4,7 @@ load ../helper
 
 @test 'clone with github shorthand, while matching path exists' {
 	$EXPECT_INSTALLED || skip 'expect not installed'
+	ping -c 1 -w 3 github.com || skip 'github not reachable'
 	git init andsens/rc-files
 	open_bracket="\\u005b"
 	close_bracket="\\u005d"
@@ -71,4 +72,6 @@ EOF
 	$HOMESHICK_FN --batch clone $REPO_FIXTURES/nested-submodules
 	[ -e "$HOMESICK/repos/nested-submodules/level1" ]
 	[ ! -e "$HOMESICK/repos/nested-submodules/level1/level2/info" ]
+	# "unmock" git
+	unset git
 }
